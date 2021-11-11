@@ -25,6 +25,14 @@ from models import LSTM, IAN, MemNet, RAM, TD_LSTM, TC_LSTM, Cabasc, ATAE_LSTM, 
 from models.aen import CrossEntropyLoss_LSR, AEN_BERT
 from models.bert_spc import BERT_SPC
 
+#Add TQDM
+from tqdm import tqdm
+TQDM_DISABLE=True
+
+#Filter Warnings
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning) 
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -98,7 +106,8 @@ class Instructor:
             n_correct, n_total, loss_total = 0, 0, 0
             # switch model to training mode
             self.model.train()
-            for i_batch, batch in enumerate(train_data_loader):
+            #for i_batch, batch in enumerate(train_data_loader):
+            for i_batch, batch in enumerate(tqdm(train_data_loader, desc=f'train-{i_epoch}')):
                 global_step += 1
                 # clear gradient accumulators
                 optimizer.zero_grad()
@@ -165,6 +174,7 @@ class Instructor:
     def run(self):
         # Loss and Optimizer
         criterion = nn.CrossEntropyLoss()
+        #criterion = CrossEntropyLoss_LSR(self.opt.device)
         _params = filter(lambda p: p.requires_grad, self.model.parameters())
         optimizer = self.opt.optimizer(_params, lr=self.opt.lr, weight_decay=self.opt.l2reg)
 
@@ -191,7 +201,7 @@ def main():
     parser.add_argument('--l2reg', default=0.01, type=float)
     parser.add_argument('--num_epoch', default=20, type=int, help='try larger number for non-BERT models')
     parser.add_argument('--batch_size', default=16, type=int, help='try 16, 32, 64 for BERT models')
-    parser.add_argument('--log_step', default=10, type=int)
+    parser.add_argument('--log_step', default=40, type=int)
     parser.add_argument('--embed_dim', default=300, type=int)
     parser.add_argument('--hidden_dim', default=300, type=int)
     parser.add_argument('--bert_dim', default=768, type=int)
@@ -298,6 +308,87 @@ def main():
     ins = Instructor(opt)
     ins.run()
 
+def checkBadTweets():
+    #Get OPT
+    # Hyper Parameters
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_name', default='bert_spc', type=str)
+    parser.add_argument('--dataset', default='laptop', type=str, help='twitter, restaurant, laptop')
+    parser.add_argument('--optimizer', default='adam', type=str)
+    parser.add_argument('--initializer', default='xavier_uniform_', type=str)
+    parser.add_argument('--lr', default=2e-5, type=float, help='try 5e-5, 2e-5 for BERT, 1e-3 for others')
+    parser.add_argument('--dropout', default=0.1, type=float)
+    parser.add_argument('--l2reg', default=0.01, type=float)
+    parser.add_argument('--num_epoch', default=20, type=int, help='try larger number for non-BERT models')
+    parser.add_argument('--batch_size', default=16, type=int, help='try 16, 32, 64 for BERT models')
+    parser.add_argument('--log_step', default=40, type=int)
+    parser.add_argument('--embed_dim', default=300, type=int)
+    parser.add_argument('--hidden_dim', default=300, type=int)
+    parser.add_argument('--bert_dim', default=768, type=int)
+    parser.add_argument('--pretrained_bert_name', default='bert-base-uncased', type=str)
+    parser.add_argument('--max_seq_len', default=85, type=int)
+    parser.add_argument('--polarities_dim', default=3, type=int)
+    parser.add_argument('--hops', default=3, type=int)
+    parser.add_argument('--patience', default=5, type=int)
+    parser.add_argument('--device', default=None, type=str, help='e.g. cuda:0')
+    parser.add_argument('--seed', default=1234, type=int, help='set seed for reproducibility')
+    parser.add_argument('--valset_ratio', default=0, type=float, help='set ratio between 0 and 1 for validation support')
+    # The following parameters are only valid for the lcf-bert model
+    parser.add_argument('--local_context_focus', default='cdm', type=str, help='local context focus mode, cdw or cdm')
+    parser.add_argument('--SRD', default=3, type=int, help='semantic-relative-distance, see the paper of LCF-BERT model')
+    opt = parser.parse_args()
+
+    #Get Names
+    dataset_files = {
+        'twitter': {
+            'train': './datasets/acl-14-short-data/train.raw',
+            'test': './datasets/acl-14-short-data/test.raw'
+        },
+        'restaurant': {
+            'train': './datasets/semeval14/Restaurants_Train.xml.seg',
+            'test': './datasets/semeval14/Restaurants_Test_Gold.xml.seg'
+        },
+        'laptop': {
+            'train': './datasets/semeval14/Laptops_Train.xml.seg',
+            'test': './datasets/semeval14/Laptops_Test_Gold.xml.seg'
+        }
+    }
+    #Get Data
+    tokenizer = Tokenizer4Bert(85, "bert-base-uncased")
+    print(dataset_files["twitter"]['train'])
+    fin = open(dataset_files["twitter"]['train'], 'r', encoding='utf-8', newline='\n', errors='ignore')
+    lines = fin.readlines()
+    fin.close()
+
+    #Get Idx
+    dictIdx = {}
+    for idx in range(0,200,3):
+        dictIdx[idx//3] = (lines[idx].strip("\n"),lines[idx+1].strip("\n"),lines[idx+2].strip("\n"))
+
+    #Print Data
+    file_name = "state_dict/aen_bert_twitter_val_acc_0.7283"
+    bert = BertModel.from_pretrained('bert-base-uncased')
+    model = AEN_BERT(bert, opt)
+    model.load_state_dict(torch.load("state_dict/aen_bert_twitter_val_acc_0.7283"))
+    model.eval()
+
+    #Make TrainSet/Loader
+    trainset = ABSADataset(dataset_files["twitter"]['train'], tokenizer)
+    train_data_loader = DataLoader(dataset=trainset, batch_size=32, shuffle=False)
+
+    #Get Output
+    ctr = 0
+    for i_batch, batch in enumerate(train_data_loader):
+        inputs = [batch[col] for col in ['concat_bert_indices', 'concat_segments_indices']]
+        armaxAns = torch.argmax(model(inputs),dim=1) - 1
+        for check in armaxAns:
+            if dictIdx[ctr][0] != check[0]:
+                print("Model Label: ", check[0], "Real Answer: ",dictIdx[ctr])
+            ctr += 1
+        #Only CHeck 64 Examples
+        if i_batch >= 2:
+            break
 
 if __name__ == '__main__':
-    main()
+    checkBadTweets()
+    #main()
