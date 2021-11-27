@@ -8,7 +8,7 @@ import pickle
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from transformers import BertTokenizer
+from transformers import BertTokenizer, AutoTokenizer
 
 
 def build_tokenizer(fnames, max_seq_len, dat_fname):
@@ -111,7 +111,11 @@ class Tokenizer(object):
 
 class Tokenizer4Bert:
     def __init__(self, max_seq_len, pretrained_bert_name):
-        self.tokenizer = BertTokenizer.from_pretrained(pretrained_bert_name)
+        if pretrained_bert_name == 'vinai/bertweet-base':
+            print("using bertweet")
+            self.tokenizer = AutoTokenizer.from_pretrained(pretrained_bert_name, use_fast=False)
+        else:
+            self.tokenizer = BertTokenizer.from_pretrained(pretrained_bert_name)
         self.max_seq_len = max_seq_len
 
     def text_to_sequence(self, text, reverse=False, padding='post', truncating='post'):
