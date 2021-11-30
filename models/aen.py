@@ -105,10 +105,12 @@ class AEN_BERT(nn.Module):
         context_len = torch.sum(context != 0, dim=-1)
         target_len = torch.sum(target != 0, dim=-1)
         context = self.squeeze_embedding(context, context_len)
-        context, _ = self.bert(context)
+        output = self.bert(context)
+        context = output[0]
         context = self.dropout(context)
         target = self.squeeze_embedding(target, target_len)
-        target, _ = self.bert(target)
+        output = self.bert(target)
+        target = output[0]
         target = self.dropout(target)
 
         hc, _ = self.attn_k(context, context)
