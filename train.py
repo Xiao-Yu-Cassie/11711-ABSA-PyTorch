@@ -125,6 +125,11 @@ class Instructor:
 
                 # print(outputs[0])
                 # print(outputs[1])
+                # print(outputs[2])
+                # print(outputs[3])
+                # print(outputs[4])
+                # print(outputs[5])
+                # print(outputs[6])
                 # print(torch.argmax(outputs, -1))
                 # print(targets)
                 # assert(False)
@@ -167,7 +172,7 @@ class Instructor:
         with torch.no_grad():
             for i_batch, t_batch in enumerate(data_loader):
                 t_inputs = [t_batch[col].to(self.opt.device) for col in self.opt.inputs_cols]
-                print(t_inputs)
+                # print(t_inputs)
                 t_targets = t_batch['polarity'].to(self.opt.device)
                 t_outputs = self.model(t_inputs)
                 # print(torch.argmax(t_outputs, -1)[0][:20])
