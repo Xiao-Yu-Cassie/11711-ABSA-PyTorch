@@ -14,7 +14,7 @@ import numpy
 from sklearn import metrics
 from time import strftime, localtime
 
-from transformers import BertModel
+from transformers import BertModel, AutoModel
 
 import torch
 import torch.nn as nn
@@ -45,7 +45,10 @@ class Instructor:
 
         if 'bert' in opt.model_name:
             tokenizer = Tokenizer4Bert(opt.max_seq_len, opt.pretrained_bert_name)
-            bert = BertModel.from_pretrained(opt.pretrained_bert_name)
+            if opt.pretrained_bert_name == "bertweet":
+                bert = AutoModel.from_pretrained("vinai/bertweet-base")
+            else:
+                bert = BertModel.from_pretrained(opt.pretrained_bert_name)
             self.model = opt.model_class(bert, opt).to(opt.device)
         else:
             tokenizer = build_tokenizer(
@@ -114,8 +117,17 @@ class Instructor:
                 optimizer.zero_grad()
 
                 inputs = [batch[col].to(self.opt.device) for col in self.opt.inputs_cols]
+
+                
                 outputs = self.model(inputs)
+                
                 targets = batch['polarity'].to(self.opt.device)
+
+                # print(outputs[0])
+                # print(outputs[1])
+                # print(torch.argmax(outputs, -1))
+                # print(targets)
+                # assert(False)
 
                 loss = criterion(outputs, targets)
                 loss.backward()
@@ -155,8 +167,13 @@ class Instructor:
         with torch.no_grad():
             for i_batch, t_batch in enumerate(data_loader):
                 t_inputs = [t_batch[col].to(self.opt.device) for col in self.opt.inputs_cols]
+                print(t_inputs)
                 t_targets = t_batch['polarity'].to(self.opt.device)
                 t_outputs = self.model(t_inputs)
+                # print(torch.argmax(t_outputs, -1)[0][:20])
+                # print(torch.argmax(t_outputs, -1)[1][:20])
+                # print(torch.argmax(t_outputs, -1)[2][:20])
+                # assert(False)
 
                 n_correct += (torch.argmax(t_outputs, -1) == t_targets).sum().item()
                 n_total += len(t_outputs)
@@ -543,7 +560,7 @@ def displayTweets():
         print()
 
 if __name__ == '__main__':
-    getErrorAnalysis()
+    # getErrorAnalysis()
     #displayTweets()
     #checkBadTweets()
-    #main()
+    main()
