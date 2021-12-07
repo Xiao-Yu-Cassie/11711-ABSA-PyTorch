@@ -118,7 +118,6 @@ class Instructor:
 
                 inputs = [batch[col].to(self.opt.device) for col in self.opt.inputs_cols]
 
-                
                 outputs = self.model(inputs)
                 
                 targets = batch['polarity'].to(self.opt.device)
@@ -223,7 +222,7 @@ def main():
     parser.add_argument('--dropout', default=0.1, type=float)
     parser.add_argument('--l2reg', default=0.01, type=float)
     parser.add_argument('--num_epoch', default=20, type=int, help='try larger number for non-BERT models')
-    parser.add_argument('--batch_size', default=16, type=int, help='try 16, 32, 64 for BERT models')
+    parser.add_argument('--batch_size', default=32, type=int, help='try 16, 32, 64 for BERT models')
     parser.add_argument('--log_step', default=40, type=int)
     parser.add_argument('--embed_dim', default=300, type=int)
     parser.add_argument('--hidden_dim', default=300, type=int)
@@ -235,7 +234,7 @@ def main():
     parser.add_argument('--patience', default=5, type=int)
     parser.add_argument('--device', default=None, type=str, help='e.g. cuda:0')
     parser.add_argument('--seed', default=1234, type=int, help='set seed for reproducibility')
-    parser.add_argument('--valset_ratio', default=0, type=float, help='set ratio between 0 and 1 for validation support')
+    parser.add_argument('--valset_ratio', default=0.3, type=float, help='set ratio between 0 and 1 for validation support')
     # The following parameters are only valid for the lcf-bert model
     parser.add_argument('--local_context_focus', default='cdm', type=str, help='local context focus mode, cdw or cdm')
     parser.add_argument('--SRD', default=3, type=int, help='semantic-relative-distance, see the paper of LCF-BERT model')

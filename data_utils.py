@@ -123,7 +123,6 @@ class Tokenizer4Bert:
     def text_to_sequence(self, text, reverse=False, padding='post', truncating='post'):
         tok = self.tokenizer.tokenize(text)
         sequence = self.tokenizer.convert_tokens_to_ids(tok)
-        # print(text, tok, sequence)
         if len(sequence) == 0:
             sequence = [0]
         if reverse:
@@ -132,7 +131,7 @@ class Tokenizer4Bert:
 
 
 class ABSADataset(Dataset):
-    def __init__(self, fname, tokenizer):
+    def __init__(self, fname, tokenizer, balance_neutral=False):
         fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
         lines = fin.readlines()
         fin.close()
@@ -140,7 +139,10 @@ class ABSADataset(Dataset):
         idx2graph = pickle.load(fin)
         fin.close()
 
-        all_data = []
+        if balance_neutral:
+            all_data = {0: [], 1: [], 2: []}
+        else:
+            all_data = []
         for i in range(0, len(lines), 3):
             text_left, _, text_right = [s.lower().strip() for s in lines[i].partition("$T$")]
             aspect = lines[i + 1].lower().strip()
@@ -206,8 +208,15 @@ class ABSADataset(Dataset):
                 'polarity': polarity,
             }
 
-            all_data.append(data)
-        self.data = all_data
+            if balance_neutral:
+                all_data[polarity].append(data)
+            else:
+                all_data.append(data)
+        # print(len(all_data), len(all_data[0]), len(all_data[1][::2]), len(all_data[2]))
+        if balance_neutral:
+            self.data = all_data[0]+all_data[1][::2]+all_data[2]
+        else:
+            self.data = all_data
 
     def __getitem__(self, index):
         return self.data[index]
